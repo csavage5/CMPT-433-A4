@@ -7,7 +7,7 @@
 #define MY_DEVICE_FILE "morse-code"
 DEFINE_LED_TRIGGER(my_trigger);
 
-static int my_open(struct inode *inode, struct file *file;
+static int my_open(struct inode *inode, struct file *file);
 static int my_close(struct inode *inode, struct file *file);
 static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos);
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos);
@@ -56,7 +56,7 @@ static int __init morsecode_init(void) {
 }
 
 static void __exit morsecode_exit(void) {
-    led_trigger_unregister_simple(my_trigger)
+    led_trigger_unregister_simple(my_trigger);
     printk(KERN_INFO "<---- exit LED trigger morse-code.\n");
 }
 
