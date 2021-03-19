@@ -3,7 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 
-#define MY_DEVICE_FILE "morse-codeS"
+#define MY_DEVICE_FILE "morse-code"
 
 static int my_open(struct inode *inode, struct file *file) {
     return 0;
