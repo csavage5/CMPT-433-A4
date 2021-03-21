@@ -9,9 +9,6 @@
 
 // Solved VS Code IntelliSense issues with https://github.com/microsoft/vscode-cpptools/issues/5588
 
-#define PATH_LED_0_TRIGGER "/sys/class/leds/beaglebone:green:usr0/trigger"
-#define PATH_LED_O_BRIGHTNESS "/sys/class/leds/beaglebone:green:usr0/brightness"
-
 #define MY_DEVICE_FILE "morse-code"
 #define DOT_TIME_NS 200000000
 #define DOT_TIME_MS 200
@@ -97,11 +94,13 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
             // current bit is a 1
             if(character & 0x8000) {
                 // turn LED on
+                turnOnLED();
                 msleep(DOT_TIME_MS);
             }
             // current bit is a 0
             else {
                 // turn LED off
+                turnOffLED();
             }
             character <<= 1;
         }
