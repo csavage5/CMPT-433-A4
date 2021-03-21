@@ -124,7 +124,11 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
         // wait between letters
         turnOffLED();
-        msleep(3 * DOT_TIME_MS);
+        if (buff_idx != count -1)  {
+            // CASE: not on last letter, 
+            msleep(3 * DOT_TIME_MS);
+        }
+        
 	}
 
     // loop: iterate through buffer
