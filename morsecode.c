@@ -91,17 +91,26 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
         int i;
         for(i = 0; i < 16; i++) {
-            // current bit is a 1
+            
             if(character & 0x8000) {
-                // turn LED on
+                // CASE: current bit is a 1, turn on LED
                 turnOnLED();
                 msleep(DOT_TIME_MS);
-            }
-            // current bit is a 0
-            else {
+                prevChar = LETTER;
+            } else {
+                // CASE: bit is a 0
+                if (prevChar == NONE) {
+                    // CASE: found end of stream, go to 
+                    //       next letter
+                    break;
+                }
+
                 // turn LED off
                 turnOffLED();
+                msleep(DOT_TIME_MS);
+                prevChar = NONE;
             }
+            
             character <<= 1;
         }
         msleep(3 * DOT_TIME_MS);
