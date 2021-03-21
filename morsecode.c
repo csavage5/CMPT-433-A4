@@ -118,7 +118,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
     return count;
 }
 
-short getMorseCode(char letter, char *morseCodeBuffer) {
+short getMorseCode(char letter) {
     switch (letter) {
         case 'a':
         case 'A':
