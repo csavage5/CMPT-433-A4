@@ -14,7 +14,7 @@
 #define DOT_TIME_MS 200
 DEFINE_LED_TRIGGER(my_trigger);
 
-enum charType {NONE, LETTER, SPACE};
+enum charType {NONE, LETTER, PAUSE, SPACE};
 
 
 static int my_open(struct inode *inode, struct file *file);
@@ -80,7 +80,8 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 		}
 
         if (ch == ' ') {
-            // wait for 7 * DOT_TIME_NS
+            // wait to separate words
+            msleep(7 * DOT_TIME_MS);
             prevChar = SPACE;
             continue;
         }
@@ -92,27 +93,37 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         int i;
         for(i = 0; i < 16; i++) {
             
-            if(character & 0x8000) {
+            if (character & 0x8000) {
                 // CASE: current bit is a 1, turn on LED
+                
+                if (prevChar == LETTER || prevChar == PAUSE) {
+                    msleep(DOT_TIME_MS);
+                }
+                
                 turnOnLED();
-                msleep(DOT_TIME_MS);
                 prevChar = LETTER;
+
             } else {
                 // CASE: bit is a 0
-                if (prevChar == NONE) {
-                    // CASE: found end of stream, go to 
+
+                if (prevChar == PAUSE) {
+                    // CASE: found end of character, go to 
                     //       next letter
                     break;
+                    
+                } else if (prevChar == LETTER) {
+                    msleep(DOT_TIME_MS);
                 }
 
-                // turn LED off
                 turnOffLED();
-                msleep(DOT_TIME_MS);
-                prevChar = NONE;
+                prevChar = PAUSE;
             }
             
             character <<= 1;
         }
+
+        // wait between letters
+        turnOffLED();
         msleep(3 * DOT_TIME_MS);
 	}
 
