@@ -65,26 +65,40 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
     }
 
 
-    // iterate through buffer
+    // loop: iterate through buffer
+    //   copy character from buffer to local char variable
     //   if invald character (not a-z, A-Z, " "), skip
-    //   if character is a space, wait for "seven dot-times"
+    //   //if character is a space, wait for "seven dot-times"
 
-    //   flash pattern for corresponding character
-    //   wait for "three dot-times" between letters
+    //   flash pattern for character
+    //      - loop for # of bits for character:
+    //          - read leftmost bit
+    //          - if 1, LED on, if 0, LED off
+    //          - if not last bit, wait for DOT_TIME_NS 
 
-    
+    //   wait 3 * DOT_TIME_NS before going to next character
+    //      - reduce space waiting time to 7-3 = 4 DT? 3 is waited anyway for each char
+
+    // iterate ppos by count (or however many characters read)
+    // return count (or however many characters read)
     
     return 0;
 }
 
 
 static int __init morsecode_init(void) {
+    int ret;
+    ret = misc_register(&my_miscdevice);
+
     led_trigger_register_simple("morse-code", &my_trigger);
     printk(KERN_INFO "----> init LED trigger morse-code\n");
-    return 0; 
+
+    return ret; 
 }
 
 static void __exit morsecode_exit(void) {
+    misc_deregister(&my_miscdevice);
+
     led_trigger_unregister_simple(my_trigger);
     printk(KERN_INFO "<---- exit LED trigger morse-code.\n");
 }
@@ -96,5 +110,5 @@ module_exit(morsecode_exit);
 
 // Information about this module:
 MODULE_AUTHOR("Cameron Savage");
-MODULE_DESCRIPTION("A simple test driver"); 
+MODULE_DESCRIPTION("Trigger for onboard LEDs that flashes in morse code"); 
 MODULE_LICENSE("GPL"); // Important to leave as GPL.

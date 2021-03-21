@@ -1,0 +1,24 @@
+# Makefile for driver: For Kernel 4.4
+# Derived from: http://www.opensourceforu.com/2010/12/writing-your-first-linux-driver/
+# with some settings from Robert Nelson's BBB kernel build script
+
+# run with: 
+#   make -f Makefile_native
+
+obj-m := testdriver.o demo_printk.o demo_miscdrv.o demo_miscdrv_sol.o demo_paramdrv.o  
+obj-m += demo_procdrv.o demo_seqfile_procdrv.o demo_ledtrig.o echo.o demo_misc_template.o 
+
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
+	
+clean:
+	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
+	
+deploy:
+	mkdir -p ~/cmpt433/public/native_drivers
+	cp *.c ~/cmpt433/public/native_drivers/
+	cp Makefile_native ~/cmpt433/public/native_drivers/Makefile
+	chmod a+rwx ~/cmpt433/public/native_drivers
+	chmod a+rwx ~/cmpt433/public/native_drivers/* 
+	
