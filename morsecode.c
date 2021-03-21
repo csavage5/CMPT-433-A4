@@ -2,12 +2,15 @@
 #include <linux/miscdevice.h>   //
 #include <linux/kernel.h>       //
 #include <linux/fs.h>           // 
-#include <linux/leds.h>
+#include <linux/leds.h>         // LED functions
 #include <linux/uaccess.h>      // copy_to_user
 #include <linux/slab.h>         // kmalloc
-#include <linux/delay.h>
+#include <linux/delay.h>        // msleep
 
 // Solved VS Code IntelliSense issues with https://github.com/microsoft/vscode-cpptools/issues/5588
+
+#define PATH_LED_0_TRIGGER "/sys/class/leds/beaglebone:green:usr0/trigger"
+#define PATH_LED_O_BRIGHTNESS "/sys/class/leds/beaglebone:green:usr0/brightness"
 
 #define MY_DEVICE_FILE "morse-code"
 #define DOT_TIME_NS 200000000
@@ -27,6 +30,8 @@ static void __exit morsecode_exit(void);
 
 short getMorseCode(char letter);
 
+void turnOnLED(void);
+void turnOffLED(void);
 
 static struct file_operations my_fops = {
     .owner = THIS_MODULE,
@@ -123,6 +128,29 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
     return count;
 }
 
+static int __init morsecode_init(void) {
+    int ret;
+    ret = misc_register(&my_miscdevice);
+
+    led_trigger_register_simple("morse-code", &my_trigger);
+    printk(KERN_INFO "----> init LED trigger morse-code\n");
+
+    return ret; 
+}
+
+static void __exit morsecode_exit(void) {
+    misc_deregister(&my_miscdevice);
+
+    led_trigger_unregister_simple(my_trigger);
+    printk(KERN_INFO "<---- exit LED trigger morse-code.\n");
+}
+
+
+// Link our init/exit functions into the kernel's code.
+module_init(morsecode_init);
+module_exit(morsecode_exit);
+
+
 short getMorseCode(char letter) {
     switch (letter) {
         case 'a':
@@ -208,27 +236,15 @@ short getMorseCode(char letter) {
     }
 }
 
-static int __init morsecode_init(void) {
-    int ret;
-    ret = misc_register(&my_miscdevice);
 
-    led_trigger_register_simple("morse-code", &my_trigger);
-    printk(KERN_INFO "----> init LED trigger morse-code\n");
-
-    return ret; 
+void turnOnLED(void) {
+    led_trigger_event(my_trigger, LED_FULL);
 }
 
-static void __exit morsecode_exit(void) {
-    misc_deregister(&my_miscdevice);
-
-    led_trigger_unregister_simple(my_trigger);
-    printk(KERN_INFO "<---- exit LED trigger morse-code.\n");
+void turnOffLED(void) {
+    led_trigger_event(my_trigger, LED_OFF);
 }
 
-
-// Link our init/exit functions into the kernel's code.
-module_init(morsecode_init);
-module_exit(morsecode_exit);
 
 // Information about this module:
 MODULE_AUTHOR("Cameron Savage");
