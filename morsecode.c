@@ -5,6 +5,7 @@
 #include <linux/leds.h>
 #include <linux/uaccess.h>      // copy_to_user
 #include <linux/slab.h>         // kmalloc
+#include <linux/delay.h>
 
 // Solved VS Code IntelliSense issues with https://github.com/microsoft/vscode-cpptools/issues/5588
 
@@ -23,6 +24,8 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
 static int __init morsecode_init(void);
 static void __exit morsecode_exit(void);
+
+short getMorseCode(char letter);
 
 
 static struct file_operations my_fops = {
@@ -82,8 +85,10 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
 		// Process the character
         short character;
-        character = getMorseCode(ch, buff);
-        for(int i =0; i < 16; i++) {
+        character = getMorseCode(ch);
+
+        int i;
+        for(i = 0; i < 16; i++) {
             // current bit is a 1
             if(character & 0x8000) {
                 // turn LED on
@@ -199,7 +204,7 @@ short getMorseCode(char letter) {
         case 'Z':
             return 0xEEA0;
         default:
-            break;
+            return 0x0000;
     }
 }
 
