@@ -10,6 +10,7 @@
 
 #define MY_DEVICE_FILE "morse-code"
 #define DOT_TIME_NS 200000000
+#define DOT_TIME_MS 200
 DEFINE_LED_TRIGGER(my_trigger);
 
 enum charType {NONE, LETTER, SPACE};
@@ -80,9 +81,21 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         }
 
 		// Process the character
-        
-
-
+        short character;
+        character = getMorseCode(ch, buff);
+        for(int i =0; i < 16; i++) {
+            // current bit is a 1
+            if(character & 0x8000) {
+                // turn LED on
+                msleep(DOT_TIME_MS);
+            }
+            // current bit is a 0
+            else {
+                // turn LED off
+            }
+            character <<= 1;
+        }
+        msleep(3 * DOT_TIME_MS);
 	}
 
     // loop: iterate through buffer
