@@ -12,6 +12,9 @@
 #define DOT_TIME_NS 200000000
 DEFINE_LED_TRIGGER(my_trigger);
 
+enum charType {NONE, LETTER, SPACE};
+
+
 static int my_open(struct inode *inode, struct file *file);
 static int my_close(struct inode *inode, struct file *file);
 static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos);
@@ -51,19 +54,36 @@ static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos
 
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos) {
     // TODO Section 1.2
-   
-    // copy_from_user() into local kernel buffer, return w/ error if needed
-    char *localBuff = kmalloc(count * sizeof(const char), GFP_KERNEL);
+    
+    enum charType prevChar = NONE;
 
-    if (localBuff == NULL) {
-        printk(KERN_INFO "ERROR: failed to allocate kernel buffer\n");
-    }
 
-    if (copy_from_user(localBuff, buff, count)) {
-        // CASE: could not copy all data from buff -> localBuff
+    int buff_idx;
+
+    for (buff_idx = 0; buff_idx < count; buff_idx++) {
+		char ch;
+
+		// Read character from user buffer into local char
+		if (copy_from_user(&ch, &buff[buff_idx], sizeof(ch))) {
+			return -EFAULT;
+		}
+
+		if (ch < ' ' || (ch > ' ' && ch < 'A') || (ch > 'Z' && ch < 'a') || (ch > 'z')) {
+            // CASE: character is unsupported, skip
+            continue;
+		}
+
+        if (ch == ' ') {
+            // wait for 7 * DOT_TIME_NS
+            prevChar = SPACE;
+            continue;
+        }
+
+		// Process the character
         
-    }
 
+
+	}
 
     // loop: iterate through buffer
     //   copy character from buffer to local char variable
@@ -81,10 +101,94 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
     // iterate ppos by count (or however many characters read)
     // return count (or however many characters read)
-    
-    return 0;
+    *ppos += count;
+    return count;
 }
 
+short getMorseCode(char letter, char *morseCodeBuffer) {
+    switch (letter) {
+        case 'a':
+        case 'A':
+            return 0xB800;
+        case 'b':
+        case 'B':
+            return 0xEA80;
+        case 'c':
+        case 'C':
+            return 0xEBA0;
+        case 'd':
+        case 'D':
+            return 0xEA00;
+        case 'e':
+        case 'E':
+            return 0x8000;
+        case 'f':
+        case 'F':
+            return 0xAE80;
+        case 'g':
+        case 'G':
+            return 0xEE80;
+        case 'h':
+        case 'H':
+            return 0xAA00;
+        case 'i':
+        case 'I':
+            return 0xA000;
+        case 'j':
+        case 'J':
+            return 0xBBB8;
+        case 'k':
+        case 'K':
+            return 0xEB80;
+        case 'l':
+        case 'L':
+            return 0xBA80;
+        case 'm':
+        case 'M':
+            return 0xEE00;
+        case 'n':
+        case 'N':
+            return 0xE800;
+        case 'o':
+        case 'O':
+            return 0xEEE0;
+        case 'p':
+        case 'P':
+            return 0xBBA0;
+        case 'q':
+        case 'Q':
+            return 0xEEB8;
+        case 'r':
+        case 'R':
+            return 0xBA00;
+        case 's':
+        case 'S':
+            return 0xA800;
+        case 't':
+        case 'T':
+            return 0xE000;
+        case 'u':
+        case 'U':
+            return 0xAE00;
+        case 'v':
+        case 'V':
+            return 0xAB80;
+        case 'w':
+        case 'W':
+            return 0xBB80;
+        case 'x':
+        case 'X':
+            return 0xEAE0;
+        case 'y':
+        case 'Y':
+            return 0xEBB8;
+        case 'z':
+        case 'Z':
+            return 0xEEA0;
+        default:
+            break;
+    }
+}
 
 static int __init morsecode_init(void) {
     int ret;
