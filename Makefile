@@ -7,6 +7,8 @@
 # kernel build system and can use its language.
 ifneq (${KERNELRELEASE},)
 	obj-m := morsecode.o
+	#ccflags-y := $(ccflags-y) -xc -E -v
+
 # Otherwise we were called directly from the command line.
 # Invoke the kernel build system.
 else
