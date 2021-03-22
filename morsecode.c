@@ -96,7 +96,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
             if (character & 0x8000) {
                 // CASE: current bit is a 1, turn on LED
                 
-                if (prevChar == LETTER || prevChar == PAUSE) {
+                if (prevChar == LETTER) {
                     msleep(DOT_TIME_MS);
                 }
                 
