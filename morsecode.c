@@ -6,16 +6,20 @@
 #include <linux/uaccess.h>      // copy_to_user
 #include <linux/slab.h>         // kmalloc
 #include <linux/delay.h>        // msleep
+#include <linux/kfifo.h>        // FIFO queue
 
 // Solved VS Code IntelliSense issues with https://github.com/microsoft/vscode-cpptools/issues/5588
 
 #define MY_DEVICE_FILE "morse-code"
+
 #define DOT_TIME_NS 200000000
 #define DOT_TIME_MS 200
 DEFINE_LED_TRIGGER(my_trigger);
 
-enum bitType {NONE, DOT, PAUSE, SPACE};
+#define FIFO_SIZE 512
+static DECLARE_KFIFO(ms_fifo, char, FIFO_SIZE);
 
+enum bitType {NONE, DOT, PAUSE, SPACE};
 
 static int my_open(struct inode *inode, struct file *file);
 static int my_close(struct inode *inode, struct file *file);
@@ -56,7 +60,13 @@ static int my_close(struct inode *inode, struct file *file) {
 }
 
 static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos) {
-    return 0;
+    int numBytesRead = 0;
+
+    if (kfifo_to_user(&ms_fifo, buff, count, &numBytesRead)) { 
+        return -EFAULT;
+    }
+    
+    return numBytesRead;
 }
 
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos) {
@@ -66,9 +76,10 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
 
     int buff_idx;
-
+    printk(KERN_INFO "buffer size: %d\n", count);
     for (buff_idx = 0; buff_idx < count; buff_idx++) {
-		char ch;
+        char ch;
+        printk(KERN_INFO "character: %c\n", ch);
 
 		// Read character from user buffer into local char
 		if (copy_from_user(&ch, &buff[buff_idx], sizeof(ch))) {
@@ -87,17 +98,24 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
             continue;
         }
 
+
 		// Process the character
         short character;
         character = getMorseCode(ch);
         prevBit = NONE;
         //short temp;
         int i;
+
+        // Output morse code for character
         for(i = 0; i < 16; i++) {
   
             if (character & 0x8000 && lookAhead(character) == DOT) {
                 
                 // TODO write '-' to FIFO queue
+                if (!kfifo_put(&ms_fifo, '-')) {
+                    // CASE: FIFO full
+                    return -EFAULT;
+                }
 
                 turnOnLED();
                 msleep(DOT_TIME_MS);
@@ -115,6 +133,11 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
             } else if (character & 0x8000) {
                 // CASE: current bit is a 1
                 // TODO add '.' to FIFO queue
+                if (!kfifo_put(&ms_fifo, '.')) {
+                    // CASE: FIFO full
+                    return -EFAULT;
+                }
+
                 turnOnLED();
                 msleep(DOT_TIME_MS);
                 turnOffLED();
@@ -130,25 +153,48 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
                 } 
 
                 // TODO add ' ' to FIFO queue
+                if (!kfifo_put(&ms_fifo, 's')) {
+                    // CASE: FIFO full
+                    return -EFAULT;
+                }
 
                 msleep(DOT_TIME_MS);
 
             }
             
             character <<= 1;
-        }
+        } // end of letter
 
         // wait between letters
         turnOffLED();
-        if (buff_idx != count -1)  {
+        if (buff_idx != count - 2)  {
             // CASE: not on last letter
             // TODO add ' ' * 3 to FIFO queue
+            if (!kfifo_put(&ms_fifo, 's')) {
+                // CASE: FIFO full
+                return -EFAULT;
+            }
+
+            if (!kfifo_put(&ms_fifo, 's')) {
+                // CASE: FIFO full
+                return -EFAULT;
+            }
+
+            if (!kfifo_put(&ms_fifo, 's')) {
+                // CASE: FIFO full
+                return -EFAULT;
+            }
+
             msleep(3 * DOT_TIME_MS);   
         }
         
-	}
+	} // end of sentence
 
     // TODO add '\n' to FIFO queue
+    if (!kfifo_put(&ms_fifo, '\n')) {
+        // CASE: FIFO full
+        return -EFAULT;
+    }
 
     *ppos += count;
     return count;
@@ -184,6 +230,8 @@ static enum bitType lookAhead(int character) {
 static int __init morsecode_init(void) {
     int ret;
     ret = misc_register(&my_miscdevice);
+
+    INIT_KFIFO(ms_fifo);
 
     led_trigger_register_simple("morse-code", &my_trigger);
     printk(KERN_INFO "----> init LED trigger morse-code\n");
