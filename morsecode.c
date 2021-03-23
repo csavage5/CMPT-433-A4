@@ -14,7 +14,7 @@
 #define DOT_TIME_MS 200
 DEFINE_LED_TRIGGER(my_trigger);
 
-enum charType {NONE, LETTER, PAUSE, SPACE};
+enum bitType {NONE, DOT, PAUSE, SPACE};
 
 
 static int my_open(struct inode *inode, struct file *file);
@@ -25,6 +25,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 static int __init morsecode_init(void);
 static void __exit morsecode_exit(void);
 
+static enum bitType lookAhead(int character); 
 short getMorseCode(char letter);
 
 void turnOnLED(void);
@@ -61,7 +62,7 @@ static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos) {
     // TODO Section 1.2
     
-    enum charType prevChar = NONE;
+    enum bitType prevBit;
 
 
     int buff_idx;
@@ -82,41 +83,56 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         if (ch == ' ') {
             // wait to separate words
             msleep(7 * DOT_TIME_MS);
-            prevChar = SPACE;
+            prevBit = SPACE;
             continue;
         }
 
 		// Process the character
         short character;
         character = getMorseCode(ch);
-
+        prevBit = NONE;
+        //short temp;
         int i;
         for(i = 0; i < 16; i++) {
-            
-            if (character & 0x8000) {
-                // CASE: current bit is a 1, turn on LED
+  
+            if (character & 0x8000 && lookAhead(character) == DOT) {
                 
-                if (prevChar == LETTER) {
-                    msleep(DOT_TIME_MS);
-                }
-                
+                // TODO write '-' to FIFO queue
+
                 turnOnLED();
-                prevChar = LETTER;
+                msleep(DOT_TIME_MS);
+
+                turnOnLED();
+                msleep(DOT_TIME_MS);
+
+                turnOnLED();
+                msleep(DOT_TIME_MS);
+
+                turnOffLED();
+
+                character <<= 2;
+
+            } else if (character & 0x8000) {
+                // CASE: current bit is a 1
+                // TODO add '.' to FIFO queue
+                turnOnLED();
+                msleep(DOT_TIME_MS);
+                turnOffLED();
 
             } else {
-                // CASE: bit is a 0
-
-                if (prevChar == PAUSE) {
+                // CASE: bit is a 0 (between letters)
+                //turnOffLED();
+                
+                if (lookAhead(character) == PAUSE) {
                     // CASE: found end of character, go to 
                     //       next letter
                     break;
-                    
-                } else if (prevChar == LETTER) {
-                    msleep(DOT_TIME_MS);
-                }
+                } 
 
-                turnOffLED();
-                prevChar = PAUSE;
+                // TODO add ' ' to FIFO queue
+
+                msleep(DOT_TIME_MS);
+
             }
             
             character <<= 1;
@@ -125,11 +141,17 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         // wait between letters
         turnOffLED();
         if (buff_idx != count -1)  {
-            // CASE: not on last letter, 
-            msleep(3 * DOT_TIME_MS);
+            // CASE: not on last letter
+            // TODO add ' ' * 3 to FIFO queue
+            msleep(3 * DOT_TIME_MS);   
         }
         
 	}
+
+    // TODO add '\n' to FIFO queue
+
+    *ppos += count;
+    return count;
 
     // loop: iterate through buffer
     //   copy character from buffer to local char variable
@@ -147,9 +169,17 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
     // iterate ppos by count (or however many characters read)
     // return count (or however many characters read)
-    *ppos += count;
-    return count;
+    
 }
+
+
+static enum bitType lookAhead(int character) {
+    if (character & 0x4000) {
+        return DOT;
+    }
+    return PAUSE;
+}
+
 
 static int __init morsecode_init(void) {
     int ret;
