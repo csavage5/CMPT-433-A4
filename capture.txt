@@ -1,0 +1,129 @@
+debian@rwthomps-beagle:~$ uname -r
+5.3.7-rwthomps-bone13
+debian@rwthomps-beagle:~$ cat /proc/cmdline
+console=ttyO0,115200n8 root=/dev/mmcblk1p1 ro rootfstype=ext4 rootwait
+debian@rwthomps-beagle:~$ ifconfig
+eth0: flags=-28605<UP,BROADCAST,RUNNING,MULTICAST,DYNAMIC>  mtu 1500
+        inet 192.168.1.18  netmask 255.255.255.0  broadcast 192.168.1.255
+        inet6 fe80::e615:f6ff:fefb:88fc  prefixlen 64  scopeid 0x20<link>
+        ether e4:15:f6:fb:88:fc  txqueuelen 1000  (Ethernet)
+        RX packets 1528106  bytes 239454639 (228.3 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 14796  bytes 1370305 (1.3 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 160  bytes 12960 (12.6 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 160  bytes 12960 (12.6 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+usb0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.7.2  netmask 255.255.255.252  broadcast 192.168.7.3
+        inet6 fe80::1eba:8cff:fea2:ed70  prefixlen 64  scopeid 0x20<link>
+        ether 1c:ba:8c:a2:ed:70  txqueuelen 1000  (Ethernet)
+        RX packets 253145  bytes 31781122 (30.3 MiB)
+        RX errors 0  dropped 374  overruns 0  frame 0
+        TX packets 21448  bytes 3802998 (3.6 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+usb1: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+        inet 192.168.6.2  netmask 255.255.255.252  broadcast 192.168.6.3
+        ether 1c:ba:8c:a2:ed:6d  txqueuelen 1000  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 0  bytes 0 (0.0 B)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+debian@rwthomps-beagle:~$ cd /mnt/remote/drivers
+debian@rwthomps-beagle:/mnt/remote/drivers$ modinfo ./morsecode.ko
+filename:       /mnt/remote/drivers/./morsecode.ko
+license:        GPL
+description:    Trigger for onboard LEDs that flashes in morse code
+author:         Cameron Savage and Ryan Thompson
+depends:        
+name:           morsecode
+vermagic:       5.3.7-rwthomps-bone13 preempt mod_unload modversions ARMv7 thumb2 p2v8 
+debian@rwthomps-beagle:/mnt/remote/drivers$ sudo insmod morsecode.ko
+[sudo] password for debian: 
+debian@rwthomps-beagle:/mnt/remote/drivers$ lsmod
+Module                  Size  Used by
+morsecode              16384  0
+evdev                  20480  1
+usb_f_mass_storage     40960  2
+usb_f_acm              20480  2
+u_serial               24576  3 usb_f_acm
+usb_f_ecm              20480  2
+usb_f_rndis            24576  2
+8021q                  24576  0
+u_ether                24576  2 usb_f_ecm,usb_f_rndis
+garp                   16384  1 8021q
+stp                    16384  1 garp
+mrp                    16384  1 8021q
+llc                    16384  2 garp,stp
+libcomposite           45056  16 usb_f_ecm,usb_f_acm,usb_f_mass_storage,usb_f_rndis
+iptable_nat            16384  0
+nf_nat                 28672  1 iptable_nat
+nf_conntrack           98304  1 nf_nat
+nf_defrag_ipv6         20480  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+iptable_mangle         16384  0
+iptable_filter         16384  0
+spidev                 20480  0
+ip_tables              24576  3 iptable_mangle,iptable_filter,iptable_nat
+x_tables               24576  3 iptable_mangle,ip_tables,iptable_filter
+debian@rwthomps-beagle:/mnt/remote/drivers$ cd /sys/class/leds/beaglebone\:green\:usr0
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ echo morse-code > trigger
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ cat trigger
+none usb-gadget usb-host kbd-scrolllock kbd-numlock kbd-capslock kbd-kanalock kbd-shiftlock kbd-altgrlock kbd-ctrllock kbd-altlock kbd-shiftllock kbd-shiftrlock kbd-ctrlllock kbd-ctrlrlock mmc0 mmc1 timer oneshot disk-activity disk-read disk-write ide-disk mtd nand-disk heartbeat backlight gpio cpu cpu0 activity default-on panic netdev 4a101000.mdio:00:link 4a101000.mdio:00:100Mbps 4a101000.mdio:00:10Mbps [morse-code] 
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ echo 'Hello world.' | sudo tee /dev/morse-code
+Hello world.
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ sudo cat /dev/morse-code
+. . . .   .   . - . .   . - . .   - - -   . - -   - - -   . - .   . - . .   - . .   
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ sudo rmmod morsecode.ko
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ lsmod
+Module                  Size  Used by
+evdev                  20480  1
+usb_f_mass_storage     40960  2
+usb_f_acm              20480  2
+u_serial               24576  3 usb_f_acm
+usb_f_ecm              20480  2
+usb_f_rndis            24576  2
+8021q                  24576  0
+u_ether                24576  2 usb_f_ecm,usb_f_rndis
+garp                   16384  1 8021q
+stp                    16384  1 garp
+mrp                    16384  1 8021q
+llc                    16384  2 garp,stp
+libcomposite           45056  16 usb_f_ecm,usb_f_acm,usb_f_mass_storage,usb_f_rndis
+iptable_nat            16384  0
+nf_nat                 28672  1 iptable_nat
+nf_conntrack           98304  1 nf_nat
+nf_defrag_ipv6         20480  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+iptable_mangle         16384  0
+iptable_filter         16384  0
+spidev                 20480  0
+ip_tables              24576  3 iptable_mangle,iptable_filter,iptable_nat
+x_tables               24576  3 iptable_mangle,ip_tables,iptable_filter
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ dmesg | tail -100
+[522434.055665] ----> init LED trigger morse-code
+[522462.522708] buffer size: 13
+[522462.525909] character: \xffffffda
+[522464.597514] character: H
+[522465.429578] character: e
+[522467.925825] character: l
+[522470.421934] character: l
+[522473.334176] character: o
+[522474.742291] character:  
+[522477.238470] character: w
+[522480.150748] character: o
+[522482.230863] character: r
+[522484.727045] character: l
+[522486.807208] character: d
+[522486.809853] character: .
+[522501.596621] <---- exit LED trigger morse-code.
+debian@rwthomps-beagle:/sys/class/leds/beaglebone:green:usr0$ 

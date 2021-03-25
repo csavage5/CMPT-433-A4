@@ -153,7 +153,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
                 } 
 
                 // TODO add ' ' to FIFO queue
-                if (!kfifo_put(&ms_fifo, 's')) {
+                if (!kfifo_put(&ms_fifo, ' ')) {
                     // CASE: FIFO full
                     return -EFAULT;
                 }
@@ -170,17 +170,17 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         if (buff_idx != count - 2)  {
             // CASE: not on last letter
             // TODO add ' ' * 3 to FIFO queue
-            if (!kfifo_put(&ms_fifo, 's')) {
+            if (!kfifo_put(&ms_fifo, ' ')) {
                 // CASE: FIFO full
                 return -EFAULT;
             }
 
-            if (!kfifo_put(&ms_fifo, 's')) {
+            if (!kfifo_put(&ms_fifo, ' ')) {
                 // CASE: FIFO full
                 return -EFAULT;
             }
 
-            if (!kfifo_put(&ms_fifo, 's')) {
+            if (!kfifo_put(&ms_fifo, ' ')) {
                 // CASE: FIFO full
                 return -EFAULT;
             }
@@ -348,6 +348,6 @@ void turnOffLED(void) {
 
 
 // Information about this module:
-MODULE_AUTHOR("Cameron Savage");
+MODULE_AUTHOR("Cameron Savage and Ryan Thompson");
 MODULE_DESCRIPTION("Trigger for onboard LEDs that flashes in morse code"); 
 MODULE_LICENSE("GPL"); // Important to leave as GPL.
