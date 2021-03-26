@@ -21,7 +21,7 @@ static DECLARE_KFIFO(ms_fifo, char, FIFO_SIZE);
 
 enum bitType {NONE, DOT, PAUSE, SPACE};
 
-short character;
+short chMorseCode;
 int i;
 
 static int my_open(struct inode *inode, struct file *file);
@@ -93,23 +93,17 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 		}
 
         if (ch == ' ') {
-            // wait to separate words
             msleep(7 * DOT_TIME_MS);
-            prevBit = SPACE;
             continue;
         }
 
-
-		// Process the character
-        
-        character = getMorseCode(ch);
-        prevBit = NONE;
-        //short temp;
+		// Process the character        
+        chMorseCode = getMorseCode(ch);
 
         // Output morse code for character
         for(i = 0; i < 16; i++) {
   
-            if (character & 0x8000 && lookAhead(character) == DOT) {
+            if (chMorseCode & 0x8000 && lookAhead(chMorseCode) == DOT) {
                 
                 // CASE: current bit is 1 and the next bit is 
                 //       also a 1 (DASH) - write '-' to FIFO queue
@@ -130,9 +124,9 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
                 turnOffLED();
 
                 // skip over next two 1s
-                character <<= 2;
+                chMorseCode <<= 2;
 
-            } else if (character & 0x8000) {
+            } else if (chMorseCode & 0x8000) {
                 // CASE: current bit is a 1 - add '.' to FIFO queue
                 if (!kfifo_put(&ms_fifo, '.')) {
                     // CASE: FIFO full
@@ -146,7 +140,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
             } else {
                 // CASE: bit is a 0 (between letters)
                 
-                if (lookAhead(character) == PAUSE) {
+                if (lookAhead(chMorseCode) == PAUSE) {
                     // CASE: found end of character, go to 
                     //       next letter
                     break;
@@ -162,7 +156,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
             }
             
-            character <<= 1;
+            chMorseCode <<= 1;
         } // end of letter
 
         // wait between letters
@@ -201,8 +195,8 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 }
 
 
-static enum bitType lookAhead(int character) {
-    if (character & 0x4000) {
+static enum bitType lookAhead(short morseCode) {
+    if (morseCode & 0x4000) {
         return DOT;
     }
     return PAUSE;
