@@ -21,6 +21,9 @@ static DECLARE_KFIFO(ms_fifo, char, FIFO_SIZE);
 
 enum bitType {NONE, DOT, PAUSE, SPACE};
 
+short character;
+int i;
+
 static int my_open(struct inode *inode, struct file *file);
 static int my_close(struct inode *inode, struct file *file);
 static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos);
@@ -70,10 +73,8 @@ static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos
 }
 
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos) {
-    // TODO Section 1.2
-    
-    enum bitType prevBit;
 
+    enum bitType prevBit;
 
     int buff_idx;
     printk(KERN_INFO "buffer size: %d\n", count);
@@ -100,18 +101,18 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
 
 		// Process the character
-        short character;
+        
         character = getMorseCode(ch);
         prevBit = NONE;
         //short temp;
-        int i;
 
         // Output morse code for character
         for(i = 0; i < 16; i++) {
   
             if (character & 0x8000 && lookAhead(character) == DOT) {
                 
-                // TODO write '-' to FIFO queue
+                // CASE: current bit is 1 and the next bit is 
+                //       also a 1 (DASH) - write '-' to FIFO queue
                 if (!kfifo_put(&ms_fifo, '-')) {
                     // CASE: FIFO full
                     return -EFAULT;
@@ -128,11 +129,11 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
                 turnOffLED();
 
+                // skip over next two 1s
                 character <<= 2;
 
             } else if (character & 0x8000) {
-                // CASE: current bit is a 1
-                // TODO add '.' to FIFO queue
+                // CASE: current bit is a 1 - add '.' to FIFO queue
                 if (!kfifo_put(&ms_fifo, '.')) {
                     // CASE: FIFO full
                     return -EFAULT;
@@ -144,7 +145,6 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
             } else {
                 // CASE: bit is a 0 (between letters)
-                //turnOffLED();
                 
                 if (lookAhead(character) == PAUSE) {
                     // CASE: found end of character, go to 
@@ -152,7 +152,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
                     break;
                 } 
 
-                // TODO add ' ' to FIFO queue
+                // add ' ' to FIFO queue
                 if (!kfifo_put(&ms_fifo, ' ')) {
                     // CASE: FIFO full
                     return -EFAULT;
@@ -168,8 +168,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         // wait between letters
         turnOffLED();
         if (buff_idx != count - 2)  {
-            // CASE: not on last letter
-            // TODO add ' ' * 3 to FIFO queue
+            // CASE: not on last letter - add ' ' * 3 to FIFO queue
             if (!kfifo_put(&ms_fifo, ' ')) {
                 // CASE: FIFO full
                 return -EFAULT;
@@ -188,9 +187,9 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
             msleep(3 * DOT_TIME_MS);   
         }
         
-	} // end of sentence
+	} // end of string
 
-    // TODO add '\n' to FIFO queue
+    // add '\n' to FIFO queue
     if (!kfifo_put(&ms_fifo, '\n')) {
         // CASE: FIFO full
         return -EFAULT;
@@ -199,23 +198,6 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
     *ppos += count;
     return count;
 
-    // loop: iterate through buffer
-    //   copy character from buffer to local char variable
-    //   if invald character (not a-z, A-Z, " "), skip
-    //   //if character is a space, wait for "seven dot-times"
-
-    //   flash pattern for character
-    //      - loop for # of bits for character:
-    //          - read leftmost bit
-    //          - if 1, LED on, if 0, LED off
-    //          - if not last bit, wait for DOT_TIME_NS 
-
-    //   wait 3 * DOT_TIME_NS before going to next character
-    //      - reduce space waiting time to 7-3 = 4 DT? 3 is waited anyway for each char
-
-    // iterate ppos by count (or however many characters read)
-    // return count (or however many characters read)
-    
 }
 
 
