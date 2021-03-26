@@ -32,7 +32,7 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 static int __init morsecode_init(void);
 static void __exit morsecode_exit(void);
 
-static enum bitType lookAhead(int character); 
+static enum bitType lookAhead(short character); 
 short getMorseCode(char letter);
 
 void turnOnLED(void);
@@ -73,8 +73,6 @@ static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos
 }
 
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos) {
-
-    enum bitType prevBit;
 
     int buff_idx;
     printk(KERN_INFO "buffer size: %d\n", count);
