@@ -29,7 +29,6 @@ default:
 	
 	# copy result to public folder
 	cp *.ko ${PUBLIC_DRIVER_PWD}
-	${MAKE} -C ${KERNEL_SOURCE} M=${PWD} clean
 
 clean:
 	${MAKE} -C ${KERNEL_SOURCE} M=${PWD} clean
