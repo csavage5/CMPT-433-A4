@@ -21,6 +21,12 @@ static DECLARE_KFIFO(ms_fifo, char, FIFO_SIZE);
 
 enum bitType {NONE, DOT, PAUSE, SPACE};
 
+char *pCharCursor;
+int buffSize;
+
+int buffIdx;
+int ch;
+
 short chMorseCode;
 int i;
 
@@ -74,16 +80,21 @@ static ssize_t my_read(struct file *file, char *buff, size_t count, loff_t *ppos
 
 static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_t *ppos) {
 
-    int buff_idx;
-    printk(KERN_INFO "buffer size: %d\n", count);
-    for (buff_idx = 0; buff_idx < count; buff_idx++) {
-        char ch;
-        printk(KERN_INFO "character: %c\n", ch);
+    char *copiedBuff = kmalloc(sizeof(char) * count, GFP_KERNEL);
+    
+    if (copy_from_user(copiedBuff, buff, sizeof(char) * count)) {
+        return -EFAULT;
+    }
 
-		// Read character from user buffer into local char
-		if (copy_from_user(&ch, &buff[buff_idx], sizeof(ch))) {
-			return -EFAULT;
-		}
+    // remove leading and trailing whitespace and get new size
+    pCharCursor = strim(copiedBuff);
+    buffSize = strlen(pCharCursor);
+    printk(KERN_INFO "stripped buffer size: %d\n", buffSize);
+
+
+    for (buffIdx = 0; buffIdx < buffSize; buffIdx++) {
+        
+        ch = pCharCursor[buffIdx];
 
 		if (ch < ' ' || (ch > ' ' && ch < 'A') || (ch > 'Z' && ch < 'a') || (ch > 'z')) {
             // CASE: character is unsupported, skip
@@ -91,11 +102,28 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 		}
 
         if (ch == ' ') {
+
+            // CASE: break between words - add ' ' * 3 to FIFO queue
+            if (!kfifo_put(&ms_fifo, ' ')) {
+                // CASE: FIFO full
+                return -EFAULT;
+            }
+
+            if (!kfifo_put(&ms_fifo, ' ')) {
+                // CASE: FIFO full
+                return -EFAULT;
+            }
+
+            if (!kfifo_put(&ms_fifo, ' ')) {
+                // CASE: FIFO full
+                return -EFAULT;
+            }
+
             msleep(7 * DOT_TIME_MS);
             continue;
         }
 
-		// Process the character        
+		// get morse code for character      
         chMorseCode = getMorseCode(ch);
 
         // Output morse code for character
@@ -111,17 +139,12 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
                 }
 
                 turnOnLED();
-                msleep(DOT_TIME_MS);
 
-                turnOnLED();
-                msleep(DOT_TIME_MS);
-
-                turnOnLED();
-                msleep(DOT_TIME_MS);
+                msleep(3 * DOT_TIME_MS);
 
                 turnOffLED();
 
-                // skip over next two 1s
+                // skip over rest of dash (next two 1s)
                 chMorseCode <<= 2;
 
             } else if (chMorseCode & 0x8000) {
@@ -136,19 +159,13 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
                 turnOffLED();
 
             } else {
-                // CASE: bit is a 0 (between letters)
+                // CASE: bit is a 0 - either pause between dots or end of letter
                 
                 if (lookAhead(chMorseCode) == PAUSE) {
-                    // CASE: found end of character, go to 
-                    //       next letter
+                    // CASE: found end of letter, stop reading
+                    //       and go to next character
                     break;
                 } 
-
-                // add ' ' to FIFO queue
-                if (!kfifo_put(&ms_fifo, ' ')) {
-                    // CASE: FIFO full
-                    return -EFAULT;
-                }
 
                 msleep(DOT_TIME_MS);
 
@@ -159,24 +176,21 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
 
         // wait between letters
         turnOffLED();
-        if (buff_idx != count - 2)  {
-            // CASE: not on last letter - add ' ' * 3 to FIFO queue
-            if (!kfifo_put(&ms_fifo, ' ')) {
+        if (buffIdx < buffSize - 1)  {
+            // CASE: not on last letter 
+
+            if (pCharCursor[buffIdx+1] != ' ') {
+                // CASE: break between letters, push ' ' to FIFO and 
+                //       wait for 3 DOT_TIME
+
+                if (!kfifo_put(&ms_fifo, ' ')) {
                 // CASE: FIFO full
                 return -EFAULT;
+                }
+
+                msleep(3 * DOT_TIME_MS);  
             }
 
-            if (!kfifo_put(&ms_fifo, ' ')) {
-                // CASE: FIFO full
-                return -EFAULT;
-            }
-
-            if (!kfifo_put(&ms_fifo, ' ')) {
-                // CASE: FIFO full
-                return -EFAULT;
-            }
-
-            msleep(3 * DOT_TIME_MS);   
         }
         
 	} // end of string
@@ -187,12 +201,14 @@ static ssize_t my_write(struct file *file, const char *buff, size_t count, loff_
         return -EFAULT;
     }
 
+    kfree(copiedBuff);
+
     *ppos += count;
     return count;
 
 }
 
-
+// check the value of the bit at 2^14 (second MSB)
 static enum bitType lookAhead(short morseCode) {
     if (morseCode & 0x4000) {
         return DOT;
@@ -225,7 +241,7 @@ static void __exit morsecode_exit(void) {
 module_init(morsecode_init);
 module_exit(morsecode_exit);
 
-
+// convert char to morse code hex equivalent
 short getMorseCode(char letter) {
     switch (letter) {
         case 'a':
@@ -311,7 +327,6 @@ short getMorseCode(char letter) {
     }
 }
 
-
 void turnOnLED(void) {
     led_trigger_event(my_trigger, LED_FULL);
 }
@@ -319,6 +334,7 @@ void turnOnLED(void) {
 void turnOffLED(void) {
     led_trigger_event(my_trigger, LED_OFF);
 }
+
 
 
 // Information about this module:
